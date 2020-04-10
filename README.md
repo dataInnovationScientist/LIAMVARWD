@@ -1,5 +1,29 @@
 # Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets
-This repository contains the code of the validation part of the paper "Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets".
+This repository contains the code of the validation part of the paper "Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets" which has been submitted to the ecml pkdd 2020 conference.
+
+The data which has been used for this validation can be downloaded [here](https://opendata-renewables.engie.com/explore/index).
+
+## Virtual Environment
+You may be interested to have an anaconda virtual environment (to keep separeted the libraries you use for the different projects). In that case, you can use the environment_droplet.yml file 
+
+1.Create the environment:
+
+    conda create --name ecmlpkdd_environment python=3.7
+    
+    
+2.Activate the environment: 
+
+    conda activate ecmlpkdd_environment 
+
+After this command your shell will show the reference to the environment.
+
+To deactive the environment: 
+
+    conda deactivate
+
+4.Open the notebook
+
+     jupyter lab "Layered Integration Approach for Multi-view Analysis of Real-world Datasets.ipynb"
 
 ## Overview of the usable parameters in the Engie dataset:
 Operational (endogenous) parameters:
