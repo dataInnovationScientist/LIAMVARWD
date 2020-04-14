@@ -15,11 +15,6 @@ You may be interested to have an anaconda virtual environment. This way, all nec
 
     conda activate ecmlpkdd_environment 
 
-
-To deactive the environment: 
-
-    conda deactivate
-
 4.Open the notebook
 
      jupyter lab "Layered Integration Approach for Multi-view Analysis of Real-world Datasets.ipynb"
