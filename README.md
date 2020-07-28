@@ -22,7 +22,7 @@ You may be interested to have an anaconda virtual environment. This way, all nec
 ## Overview of the usable parameters in the Engie dataset:
 Operational (endogenous) parameters:
 
-- Pitch angle
+- Pitch angle 
 - Generator bearing 1 temperature 
 - Generator bearing 2 temperature
 - Generator stator temperature
@@ -33,7 +33,7 @@ Operational (endogenous) parameters:
 - Gearbox oil sump temperature
 - Nacelle temperature
 - Nacelle angle*
-- Nacelle angle corrected
+- Nacelle angle corrected*
 - Rotor speed*
 - Torque
 - Generator converter speed*
