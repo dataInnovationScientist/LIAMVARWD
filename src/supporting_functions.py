@@ -11,6 +11,32 @@ from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import pairwise_distances
 
 
+def convert_to_u_v(ang_var, speed=1):
+    """
+    Convert a angular var and scale variable to u and v variables, which take the circular nature of the variable into
+    account.
+
+    Parameters
+    ----------
+    ang_var: numpy array or pandas series containing the angular variable
+    scale_var: numpy array or pandas series of the same length containing the speed (non-angular) variable
+
+
+    Returns
+    -------
+    u and v arrays (or Series)
+    """
+
+    # Transform from degrees to radians:
+    factor = np.pi / 180
+
+
+    u = np.sin(ang_var * factor) * scale_var
+    v = np.cos(ang_var * factor) * scale_var
+
+    return(u, v)
+
+
 def plot_kmeans_validation(df, k_max=9, sample_size=1 ,CONNECTIVITY=True, SILHOUETTE=True, RETURN=False):
     """
     This function plots multiple cluster validation metrics, based on kmeans clustering.
@@ -39,7 +65,7 @@ def plot_kmeans_validation(df, k_max=9, sample_size=1 ,CONNECTIVITY=True, SILHOU
 
     for j in range(1, k_max):
         # Do the clustering
-        kmeans = KMeans(n_clusters=j, init='k-means++', max_iter=1000, n_init=5, random_state=0)
+        kmeans = KMeans(n_clusters=j, init='k-means++', max_iter=500, n_init=1, random_state=0)
         clustering = kmeans.fit_predict(df)
         if sample_size != 1:
             clustering_sampled = clustering[random_indices]
@@ -104,7 +130,7 @@ def do_individual_clustering(turbines, dict_turbines_norm, n_clusters, operation
         df_One_norm = dict_turbines_norm[turbine].copy()
 
         # Do clustering:
-        kmeans = KMeans(n_clusters[i], init='k-means++', max_iter=300, n_init=10, random_state=0)
+        kmeans = KMeans(n_clusters[i], init='k-means++', max_iter=1000, n_init=1, random_state=0)
         labels = kmeans.fit_predict(df_One_norm.loc[:, operational_features]) # Only use the operational features in the MAP step
 
         # Add labels to original and normalized dataset:
@@ -119,7 +145,7 @@ def do_individual_clustering(turbines, dict_turbines_norm, n_clusters, operation
         # 1. Plot power curve
         df_sample = dict_turbines[turbine].sample(int(len(labels)/5)) #sample of 20%
         ax = sns.scatterplot(x='Ws_avg', y='P_avg', data=df_sample, hue='Label', s=2, legend='full',linewidth=0, alpha = 0.2, palette=cpal, ax=axes[i][0])
-        ax.set(xlabel='Wind speed [m/s]', ylabel='Active Power [kW]')
+        ax.set(xlabel='Wind speed [m/s]', ylabel='Active Power [MW]')
         ax.set_title('Power curve (sample of 20%)');
 
         # 2. Plot torque curve
@@ -146,23 +172,26 @@ def visualize_individual_clustering_per_clusters(colorpal, n_clusters, dict_turb
     for i, turbine in enumerate(turbines):
     
         cpal = colorpal[color_counter:color_counter+n_clusters[i]]
-        color_counter += n_clusters[i]
+        
+
 
         df_sample = dict_turbines[turbine]
 
         # 1. Plot power curve
-        g1 = sns.FacetGrid(df_sample, col="Label", height=3, aspect = 1.5, hue='Label', palette=cpal)
+        g1 = sns.FacetGrid(df_sample, col="Label", height=2.5, aspect = 1.25, hue='Label', palette=cpal)
         g1.map(plt.scatter, "Ws_avg", "P_avg", s=1,linewidth=0, alpha = 1)
-        g1.set(xlim=(0, 20), ylim=(-100, 2100))
-        g1.set_axis_labels("Wind speed [m/s]","Active power [kW]")
-        g1.set_titles("Turbine " + turbine + ", label {col_name}")
+        g1.set(xlim=(0, 20), ylim=(-0.100, 2.100))
+        g1.set_axis_labels("Wind speed [m/s]","Active power [MW]")
+        for j in range(0, n_clusters[i]):
+            g1.axes[0,j].set_title("Operating mode " + str(color_counter+j+1) + " (Turbine " + str(i+1) + ")")
         g1.fig.suptitle('Power curve', y=1.02); 
 
         # 2. Plot torque curve
-        g2 = sns.FacetGrid(df_sample, col="Label", height=3, aspect = 1.5, hue='Label', palette=cpal)
+        g2 = sns.FacetGrid(df_sample, col="Label", height=2.5, aspect = 1.25, hue='Label', palette=cpal)
         g2.map(plt.scatter, "Ds_avg", "Rm_avg", s=1,linewidth=0, alpha = 1)
         g2.set_axis_labels("Torque [Nm]", "Generator speed [rpm]")
-        g2.set_titles("Turbine " + turbine + ", label {col_name}")
+        for j in range(0, n_clusters[i]):
+            g2.axes[0,j].set_title("Operating mode " + str(color_counter+j+1) + " (Turbine " + str(i+1) + ")")
         g2.fig.suptitle('Torque curve', y=1.02);
 
         # 3. Plot size of clusters
@@ -170,10 +199,12 @@ def visualize_individual_clustering_per_clusters(colorpal, n_clusters, dict_turb
         dict_counter = sorted(dict_counter.items(), key=operator.itemgetter(0)) # sorts the dict by key
         keys =   [ i[0] for i in dict_counter ]
         values = [ i[1] for i in dict_counter ]
-        g3 = sns.FacetGrid(df_sample, height=3, aspect = 1.5*n_clusters[i])
+        g3 = sns.FacetGrid(df_sample, height=2.5, aspect = 1.25*n_clusters[i])
         ax = sns.barplot(x=keys, y=list(values/np.sum(values)), palette=cpal)
         ax.set(xlabel='Label', ylabel='Relative count')
         ax.set_title('Amount of points per Label')
+
+        color_counter += n_clusters[i]
 
 def create_table_endogenous_view(turbines, dict_turbines, operational_features):
     table = pd.DataFrame()
@@ -268,8 +299,8 @@ def remove_noise(dict_turbines_uncleaned, hypercubes, remove_negative=True, min_
     sns.set(font_scale=1.8)
     ax = sns.scatterplot(x='Ws_avg', y='P_avg', data=dict_turbines['R80711'], alpha=1, s=1, linewidth=0)
     sns.scatterplot(x='Ws_avg', y='P_avg', data=removed_points, alpha=1, s=5, linewidth=0)
-    fig.legend(labels=['Clean data', 'Noise'], loc='upper right', bbox_to_anchor=(0.9, 0.9))
-    ax.set(xlabel='Wind speed [m/s]', ylabel='Active power [kW]')
+    fig.legend(labels=['Clean data', 'Noise'], loc='upper right', bbox_to_anchor=(0.8, 0.9))
+    ax.set(xlabel='Wind speed [m/s]', ylabel='Active power [MW]')
 
     return (dict_turbines)
 
@@ -302,7 +333,7 @@ def plot_kmeans_validation(df, k_max=9, sample_size=1 ,CONNECTIVITY=True, SILHOU
 
     for j in range(1, k_max):
         # Do the clustering
-        kmeans = KMeans(n_clusters=j, init='k-means++', max_iter=1000, n_init=5, random_state=0)
+        kmeans = KMeans(n_clusters=j, init='k-means++', max_iter=1000, n_init=1, random_state=0)
         clustering = kmeans.fit_predict(df)
         if sample_size != 1:
             clustering_sampled = clustering[random_indices]
@@ -422,6 +453,7 @@ def visualize_sparse_hypercubes(MIN_POINTS_IN_CUBE, turbines, dict_turbines, n_c
 
         for cluster_i in range(0, n_clusters[turbine_i]):
             df_cluster_i = df_One[df_One['Label']==cluster_i]
+            # print('\nturbine '+ turbine + ', cluster ' + str(cluster_i) + ':')
             df_grouped_cluster_i = df_cluster_i.groupby('cube_id')['time'].count()
 
             n_cubes = len(df_grouped_cluster_i)
@@ -436,6 +468,7 @@ def visualize_sparse_hypercubes(MIN_POINTS_IN_CUBE, turbines, dict_turbines, n_c
             label_operating_mode = 'OM '+str(counter)
             counter += 1
 
+
             df_cube_counts = df_cube_counts.append({'n_used_cubes':n_used_cubes, 'n_nonused_cubes':n_cubes-n_used_cubes,
                                                    'n_used_points':n_used_points, 'n_nonused_points':n_points-n_used_points,
                                                     'cluster': label, 'label_nice':label_nice, 'label_operating_mode':label_operating_mode}, ignore_index=True)
@@ -444,22 +477,22 @@ def visualize_sparse_hypercubes(MIN_POINTS_IN_CUBE, turbines, dict_turbines, n_c
     cluster_labels_nice = df_cube_counts['label_nice']
 
     # 1) Plot amount of hypercubes per cluster
-    g1 = df_cube_counts.set_index('label_operating_mode')[['n_used_cubes','n_nonused_cubes']].plot(kind='bar', width=0.9, stacked=True, color=['darkblue','lightgrey'], figsize=(10,3), linewidth=0)
+    g1 = df_cube_counts.set_index('label_operating_mode')[['n_used_cubes','n_nonused_cubes']].plot(kind='bar', width=0.9, stacked=True, color=['darkblue','lightgrey'], figsize=(5,1.5), linewidth=0)
     g1.set(xlabel='', ylabel='Amount of hypercubes')
     for index, row in df_cube_counts.iterrows():
         n_cubes = row.n_used_cubes+row.n_nonused_cubes
-        g1.text(row.name, n_cubes+5 , str(round(row.n_used_cubes/n_cubes*100,1))+'%', color='darkblue', ha="center")
-    plt.legend(['n used points','n removed points'], loc='upper center', bbox_to_anchor=(0.5, 1.22),
+        g1.text(row.name, row.n_used_cubes+5 , str(round(row.n_used_cubes/n_cubes*100,1))+'%', color='darkblue', ha="center", fontsize=6)
+    plt.legend(['n used hypercubes','n removed hypercubes'], loc='upper center', bbox_to_anchor=(0.5, 1.3),
               fancybox=True, shadow=True, ncol=2)
     plt.xticks(rotation=75)
 
     # 2) Plot amount of points per cluster
-    g2 = df_cube_counts.set_index('label_operating_mode')[['n_used_points','n_nonused_points']].plot.bar(width=0.9, stacked=True, color=['darkblue','lightgrey'], figsize=(10,3), linewidth=0)
+    g2 = df_cube_counts.set_index('label_operating_mode')[['n_used_points','n_nonused_points']].plot.bar(width=0.9, stacked=True, color=['darkblue','lightgrey'], figsize=(5,1.5), linewidth=0)
     g2.set(xlabel='', ylabel='Amount of points')
     for index, row in df_cube_counts.iterrows():
         n_points = row.n_used_points+row.n_nonused_points
-        g2.text(row.name, n_points+5000 , str(round(row.n_used_points/n_points*100,1))+'%', color='darkblue', ha="center")
-    plt.legend(['n used points','n removed points'], loc='upper center', bbox_to_anchor=(0.5, 1.22),
+        g2.text(row.name, n_points+5000 , str(round(row.n_used_points/n_points*100,1))+'%', color='darkblue', ha="center", fontsize=6)
+    plt.legend(['n used points','n removed points'], loc='upper center', bbox_to_anchor=(0.5, 1.32),
               fancybox=True, shadow=True, ncol=2)
     plt.xticks(rotation=75);
     
@@ -500,7 +533,7 @@ def construct_engdogenous_profiles(turbines, n_clusters, points_per_cube, KDEs, 
     fig, axes = plt.subplots(nrows=n_rows, ncols=2, figsize=(15*2,5*n_rows))
 
     group_counter = 0
-    x = np.linspace(0, 2500, 1000)
+    x = np.linspace(0, 2.500, 1000)
     sum_densities = [0]*sum(n_clusters)
 
     for turbine_i, turbine in enumerate(turbines):
@@ -517,9 +550,9 @@ def construct_engdogenous_profiles(turbines, n_clusters, points_per_cube, KDEs, 
                 col = group_counter%2
                 axes[group_counter, 0].plot(x, y)
                 axes[group_counter, 0].set_title("Individual probability distributions of OM "+str(group_counter+1)+" (turbine "+str(turbine_i+1)+' )', size='xx-large',  backgroundcolor=colorpal[group_counter])
-                axes[group_counter, 0].set_ylim(0, 0.10)
+                axes[group_counter, 0].set_ylim(0, 35)
                 axes[group_counter, 0].set_ylabel('Density')
-                axes[group_counter, 0].set_xlabel('Active Power [kW]')
+                axes[group_counter, 0].set_xlabel('Active Power [MW]')
 
                 # Calculate the normalized sum per cluster/operative mode
                 y_norm = y * points_per_cube[group_counter][cube_i] / n_points_in_cluster
@@ -530,9 +563,9 @@ def construct_engdogenous_profiles(turbines, n_clusters, points_per_cube, KDEs, 
             # Plot the weighted sum
             axes[group_counter, 1].plot(x, KDE_sum)
             axes[group_counter, 1].set_title("Mixture probability distribution of OM "+str(group_counter+1)+" (turbine "+str(turbine_i+1)+' )', size='xx-large', backgroundcolor=colorpal[group_counter])
-            axes[group_counter, 1].set_ylim(0, 0.010)
+            axes[group_counter, 1].set_ylim(0, 9)
             axes[group_counter, 1].set_ylabel('Density')
-            axes[group_counter, 1].set_xlabel('Active Power [kW]')
+            axes[group_counter, 1].set_xlabel('Active Power [MW]')
 
             group_counter+=1
 
@@ -545,8 +578,8 @@ def plot_power_and_torque(points, colorpal):
     # 1. Plot power curve
     g1 = sns.FacetGrid(points, col="FW_Operating_mode", height=3, aspect = 1.5, hue='Operating_mode', palette=colorpal)
     g1.map(plt.scatter, "Ws_avg", "P_avg", s=2,linewidth=0, alpha = 0.01)
-    g1.set(xlim=(0, 20), ylim=(-100, 2100))
-    g1.set_axis_labels("Wind speed [m/s]", "Active power [kW]")
+    g1.set(xlim=(0, 20), ylim=(-0.100, 2.100))
+    g1.set_axis_labels("Wind speed [m/s]", "Active power [MW]")
     g1.set_titles("Operating mode {col_name}")
     g1.fig.suptitle('Power curve', y=1.02)
     g1.add_legend()
@@ -566,16 +599,78 @@ def plot_power_and_torque(points, colorpal):
         lh.set_alpha(1)
         lh._sizes = [50] 
         
+def view_endogenous_profiles(turbines, n_clusters, points_per_cube, KDEs, colorpal, sum_densities):
+    group_counter = 0
+    x = np.linspace(0, 2.500, 1000)
+
+    for turbine_i, turbine in enumerate(turbines):
+        n_cols = int(n_clusters[turbine_i])
+        fig, axes = plt.subplots(nrows=2, ncols=n_cols, figsize=(4*n_cols,2*2))#(3.5*n_cols,2.5*2))
+
+        for cluster_i in range(0, n_clusters[turbine_i]):
+            KDE_sum = [0]*len(x)
+
+            for cube_i, kde in enumerate(KDEs[turbine_i][cluster_i]):
+                y = kde(x)
+
+                # Plot all KDEs separately
+                axes[0, cluster_i].plot(x, y)
+                axes[0, cluster_i].set_title("Individual probability distributions of OM "+str(group_counter+1)+" (turbine "+str(turbine_i+1)+' )',  backgroundcolor=colorpal[group_counter])
+                axes[0, cluster_i].set_ylim(0, 35)
+                axes[0, cluster_i].set_ylabel('Density')
+                axes[0, cluster_i].set_xlabel('Active Power [MW]')
+
+            # Plot the weighted sum
+            axes[1, cluster_i].plot(x, sum_densities.iloc[group_counter])
+            axes[1, cluster_i].set_title("Mixture probability distribution of OM "+str(group_counter+1)+" (turbine "+str(turbine_i+1)+' )', backgroundcolor=colorpal[group_counter])
+            axes[1, cluster_i].set_ylim(0, 9)
+            axes[1, cluster_i].set_ylabel('Density')
+            axes[1, cluster_i].set_xlabel('Active Power [MW]')
+
+            group_counter+=1
+
+        plt.tight_layout();
+    
+
         
-def construct_fleetwide_performance_profiles(n_reduced_clusters, final_labels, sum_densities, df_cube_counts, points_per_cube, colorpal):
+def construct_fleetwide_performance_profiles(n_reduced_clusters, final_labels, sum_densities, df_cube_counts, points_per_cube, colorpal, compact=False):
     fig, axes = plt.subplots(nrows=2, 
                          ncols=n_reduced_clusters, 
-                         figsize=(6*n_reduced_clusters,3*2));
-    x = np.linspace(0, 2500, 1000)
+                         figsize=(5*n_reduced_clusters,2.5*2));
+    x = np.linspace(0, 2.500, 1000)
 
     for j, group in enumerate(np.unique(final_labels)): # For each cluster
         n_points_in_group = 0
         group_profile = [0]*1000
+        for i, label in enumerate(final_labels):
+            y = sum_densities.loc[i]
+            if label is str(group):
+
+                # Caculate group profiles
+                group_profile = [a + b*sum(points_per_cube[i]) for a, b in zip(group_profile, y)]
+                n_points_in_group += sum(points_per_cube[i])
+
+        # plot group profiles
+        if compact: 
+            row = 0
+            label = 'OM ' + group
+            kwargs = {'alpha':0.5, 'color':'grey', 'linewidth':10}
+        else: 
+            axes[1, j].set_title("Fleet-wide performance profile", size='large')
+            axes[1, j].set_ylim(-0.001, 9)
+            axes[1, j].set_xlim(0, 2.300)
+            axes[1, j].set_ylabel('Density')
+            axes[1, j].set_xlabel('Active Power [MW]')
+            row = 1
+            label = ''
+            kwargs = {}
+        group_profile = [x/n_points_in_group for x in group_profile]
+        
+        axes[row, j].plot(x, group_profile, **kwargs, label=label)
+        # help(axes[row, j].plot)
+        axes[row, j].text(0.5, -4, 'Fleet-wide operating mode ' + group, size='xx-large')
+        # axes[1, j].text(300, -0.006, 'Fleet-wide operating mode '+group, size='xx-large')
+
         for i, label in enumerate(final_labels):
             if label is str(group):
                 y = sum_densities.loc[i]
@@ -583,24 +678,11 @@ def construct_fleetwide_performance_profiles(n_reduced_clusters, final_labels, s
                 # Plot clustered proficles
                 axes[0, j].plot(x, y, color=colorpal[i], label=df_cube_counts['label_operating_mode'][i])
                 axes[0, j].set_title("Individual performance profiles", size='large')# OM "+OM_dict[group], size='large')
-                axes[0, j].set_ylim(-0.001, 0.011)
-                axes[0, j].set_xlim(0, 2300)
+                axes[0, j].set_ylim(-0.001, 9)
+                axes[0, j].set_xlim(0, 2.300)
                 axes[0, j].set_ylabel('Density')
-                axes[0, j].set_xlabel('Active Power [kW]')
+                axes[0, j].set_xlabel('Active Power [MW]')
                 axes[0, j].legend()
 
-                # Caculate group profiles
-                group_profile = [a + b*sum(points_per_cube[i]) for a, b in zip(group_profile, y)]
-                n_points_in_group += sum(points_per_cube[i])
-
-        # plot group profiles
-        group_profile = [x/n_points_in_group for x in group_profile]
-        axes[1, j].plot(x, group_profile)
-        axes[1, j].set_title("Fleet-wide performance profile", size='large')#"Profile of fleet-wide OM "+OM_dict[group], size='large')
-        axes[1, j].set_ylim(-0.001, 0.011)
-        axes[1, j].set_xlim(0, 2300)
-        axes[1, j].set_ylabel('Density')
-        axes[1, j].set_xlabel('Active Power [kW]')
-        axes[1, j].text(300, -0.006, 'Fleet-wide operating mode '+group, size='xx-large')
-
     plt.tight_layout()
+
