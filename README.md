@@ -1,5 +1,5 @@
 # Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets
-This repository contains the code of the validation part of the paper "Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets" which has been submitted to the ecml pkdd 2020 conference.
+This repository contains the code of the validation part of the paper "Layered-Integration-Approach-for-Multi-view-Analysis-of-Real-world-Datasets" which has been submitted to the ecml pkdd 2020 conference. The paper can be found [here](https://project.inria.fr/aaltd20/files/2020/08/AALTD_20_paper_DhontLayered.pdf).
 
 The data which has been used for this validation can be downloaded [here](https://opendata-renewables.engie.com/explore/index).
 
